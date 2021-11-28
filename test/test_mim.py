@@ -7,11 +7,30 @@ from keras.datasets.cifar10 import load_data
 from ares import MIM, CrossEntropyLoss
 from ares.model.loader import load_model_from_path
 
+import matplotlib.pyplot as plt
+
+def plot_image(image,path): 
+    plt.figure(figsize=(40, 40))
+
+    for i in range(100) :
+        plt.subplot(10,10,i+1)
+        plt.imshow(image[i])
+        plt.axis('off')
+        plt.tight_layout()
+
+    #plt.show()
+    
+    plt.savefig(path, bbox_inches='tight')
+
+
 batch_size = 100
 
 session = tf.Session()
 
 model_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../example/cifar10/resnet56.py')
+
+#model_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../example/imagenet/inception_v3.py')
+
 rs_model = load_model_from_path(model_path)
 model = rs_model.load(session)
 
@@ -44,17 +63,23 @@ attack.config(
     magnitude=8.0 / 255.0,
     alpha=1.0 / 255.0,
 )
+i = 0
+for lo in range(batch_size, 5*batch_size, batch_size):
+    xs = xs_test[lo - batch_size:lo]
+    ys = ys_test[lo - batch_size:lo]
 
-for lo in range(0, batch_size, batch_size):
-    xs = xs_test[lo:lo + batch_size]
-    ys = ys_test[lo:lo + batch_size]
+    #path = "MIM/attack_1/original_"+str(i)+".png"
+    #plot_image(xs,"MIM/attack_1/original_"+str(i)+".png")
 
     try:
         g = attack.batch_attack(xs, ys=ys)
         while True:
-            print(next(g))
+            next(g)
     except StopIteration as e:
         xs_adv = e.value
+
+    #plot_image(xs_adv,"MIM/attack_1/adv_l2"+str(i)+".png")
+    #i+=1
 
     lbs_pred = session.run(lbs, feed_dict={xs_ph: xs})
     lbs_adv = session.run(lbs, feed_dict={xs_ph: xs_adv})
@@ -64,24 +89,30 @@ for lo in range(0, batch_size, batch_size):
         np.equal(ys, lbs_adv).astype(np.float).mean()
     )
 
-eps = np.concatenate((np.ones(50) * 1.0 / 255.0, np.ones(50) * 8.0 / 255.0))
+print("change attack config\n")
+
+eps = np.concatenate((np.ones(50) * 4.0 / 255.0, np.ones(50) * 8.0 / 255.0))
 attack.config(
     iteration=10,
     magnitude=eps,
     alpha=eps / 8,
 )
 
-for lo in range(0, batch_size, batch_size):
-    xs = xs_test[lo:lo + batch_size]
-    ys = ys_test[lo:lo + batch_size]
+i = 0
+for lo in range(batch_size, 5*batch_size, batch_size):
+    xs = xs_test[lo - batch_size:lo]
+    ys = ys_test[lo - batch_size:lo]
+
+    #plot_image(xs,"MIM/attack_2/original_"+str(i)+".png")
 
     try:
         g = attack.batch_attack(xs, ys=ys)
         while True:
-            print(next(g))
+            next(g)
     except StopIteration as e:
         xs_adv = e.value
-
+    #plot_image(xs_adv,"MIM/attack_2/adv_cancat(1)_l2_"+str(i)+".png")
+    #i+=1
     lbs_pred = session.run(lbs, feed_dict={xs_ph: xs})
     lbs_adv = session.run(lbs, feed_dict={xs_ph: xs_adv})
 
